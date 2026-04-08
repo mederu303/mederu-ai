@@ -9,7 +9,7 @@ export default function Home() {
   const { isConnected } = useAccount();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generated, setGenerated] = useState<{
+  const [generated, setGenerated] = useState<{                    
     imageUrl: string;
     title: string;
     interpretation: string;
