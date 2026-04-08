@@ -106,9 +106,8 @@ export default function Home() {
                 <p className="text-white/60 text-sm mb-6">{generated.interpretation}</p>
                 {mintResult ? (
                   <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                    　<p className="text-green-400 font-medium">Minted on Etherlink!</p>
-                    
-                      href={`https://testnet.explorer.etherlink.com/tx/${mintResult.txHash}`}
+                    　<p className="text-green-400 font-medium">Minted on Etherlink!</p                  
+                      <a href={`https://testnet.explorer.etherlink.com/tx/${mintResult.txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-purple-400 text-sm hover:underline"
