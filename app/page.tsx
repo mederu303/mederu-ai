@@ -15,11 +15,10 @@ export default function Home() {
     interpretation: string;
   } | null>(null);
   const [isMinting, setIsMinting] = useState(false);
-  const [mintResult, setMintResult] = useState<{
-    txHash: string;
+  const [mintResult, setMintResult] = useSate<{
+    txHash: string
   } | null>(null);
-
-  const handleGenerate = async () => {
+  const handleGenerate = async () => 
     if (!prompt.trim()) return;
     setIsGenerating(true);
     setGenerated(null);
@@ -107,7 +106,7 @@ export default function Home() {
                 <p className="text-white/60 text-sm mb-6">{generated.interpretation}</p>
                 {mintResult ? (
                   <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                    <p className="text-green-400 font-medium">Minted on Etherlink!</p>
+                    　<p className="text-green-400 font-medium">Minted on Etherlink!</p>
                     
                       href={`https://testnet.explorer.etherlink.com/tx/${mintResult.txHash}`}
                       target="_blank"
