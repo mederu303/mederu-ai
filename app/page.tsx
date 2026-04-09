@@ -73,7 +73,7 @@ export default function Home() {
             <Sparkles className="w-5 h-5 text-black" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tighter italic text-zinc-100">mederu lineage</h1>
+            <h1 className="text-xl font-black tracking-tighter italic text-zinc-100">mederu AI</h1>
             <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Autonomous AI Art Genealogy</p>
           </div>
         </div>
