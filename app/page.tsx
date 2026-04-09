@@ -2,7 +2,7 @@
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 
 export default function Home() {
@@ -18,8 +18,22 @@ export default function Home() {
   const [mintResult, setMintResult] = useState<{
     txHash: string
   } | null>(null);
+
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setUploadedImage(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleGenerate = async () =>  {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() && !uploadedImage) return;
     setIsGenerating(true);
     setGenerated(null);
     setMintResult(null);
@@ -27,7 +41,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, imageBase64: uploadedImage }),
       });
       setGenerated(await res.json());
     } finally {
@@ -82,8 +96,22 @@ export default function Home() {
 
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8 mb-8 shadow-2xl shadow-purple-900/10">
           <div className="flex flex-col md:flex-row gap-4 mb-8">
-            <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-center border-dashed cursor-pointer hover:bg-white/10 transition">
-              <span className="text-white/50 text-sm">📤 Upload Inspiration Image (Optional)</span>
+            <div 
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center border-dashed cursor-pointer hover:bg-white/10 transition relative overflow-hidden min-h-[160px]"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+              {uploadedImage ? (
+                <>
+                  <div className="absolute inset-0 w-full h-full pointer-events-none">
+                     <img src={uploadedImage} className="w-full h-full object-cover opacity-30 blur-sm" />
+                  </div>
+                  <img src={uploadedImage} className="relative z-10 h-28 object-contain rounded shadow-xl" />
+                  <span className="relative z-10 text-white/80 text-xs mt-2 bg-black/50 px-2 py-1 rounded">Image Uploaded - Click to re-upload</span>
+                </>
+              ) : (
+                <span className="text-white/50 text-sm">📤 Upload Inspiration Image (Optional)</span>
+              )}
             </div>
             <div className="flex-1 flex flex-col gap-3 justify-center">
               <div className="flex gap-2">
