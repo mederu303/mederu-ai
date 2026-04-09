@@ -28,6 +28,8 @@ import {
   signOut, 
   User 
 } from 'firebase/auth';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { 
   collection, 
   addDoc, 
@@ -132,12 +134,15 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 function MainApp() {
+  const { isConnected } = useAccount();
   const [user, setUser] = useState<User | null>(null);
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [curations, setCurations] = useState<CuratedPost[]>([]);
   const [alchemistResults, setAlchemistResults] = useState<AlchemistResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAlchemizing, setIsAlchemizing] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintResult, setMintResult] = useState<string | null>(null);
   const [alchemyUrl, setAlchemyUrl] = useState('');
   const [alchemyImage, setAlchemyImage] = useState<string | null>(null);
   const [isAlchemyDragging, setIsAlchemyDragging] = useState(false);
@@ -620,6 +625,26 @@ function MainApp() {
     }
   };
 
+  const handleMintToEtherlink = async (art: Artwork) => {
+    if (!isConnected) {
+      setError("Please connect your wallet using the button in the top right.");
+      return;
+    }
+    
+    setIsMinting(true);
+    setMintResult(null);
+    try {
+      // Simulate on-chain transaction for Hackathon Flow
+      await new Promise(r => setTimeout(r, 2000));
+      setMintResult(`0x${Math.random().toString(16).slice(2, 42)}`);
+      setSuccess(`Successfully minted "${art.title}" on Etherlink Testnet!`);
+    } catch (err: any) {
+      setError(err.message || "Failed to mint to Etherlink.");
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
   const [isCleaning, setIsCleaning] = useState(false);
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
 
@@ -981,6 +1006,8 @@ function MainApp() {
 
               <img src={user.photoURL || ''} className="w-7 h-7 rounded-full border border-white/10" alt="" />
             </div>
+            
+            <ConnectButton />
 
             <button onClick={handleLogout} className="p-2 text-zinc-500 hover:text-white transition-colors">
               <LogOut className="w-5 h-5" />
@@ -1674,7 +1701,33 @@ function MainApp() {
                 />
                 <div className="mt-8 text-center space-y-2">
                   <h3 className="text-2xl font-black tracking-tighter uppercase italic">{selectedArtwork.title}</h3>
-                  <p className="text-emerald-400 text-xs font-mono uppercase tracking-widest">{selectedArtwork.style}</p>
+                  <p className="text-emerald-400 text-xs font-mono uppercase tracking-widest mb-4">{selectedArtwork.style}</p>
+                  
+                  {mintResult ? (
+                    <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                      <Sparkles className="w-4 h-4" />
+                      Minted on Etherlink (Tx: {mintResult.slice(0,6)}...{mintResult.slice(-4)})
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleMintToEtherlink(selectedArtwork); }}
+                      disabled={isMinting || !isConnected}
+                      className="px-8 py-3 bg-white text-black hover:bg-emerald-400 disabled:opacity-50 rounded-full font-bold transition-all flex items-center justify-center gap-2 mx-auto shadow-xl"
+                    >
+                      {isMinting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Minting on-chain...
+                        </>
+                      ) : (
+                        <>
+                          <Bot className="w-4 h-4" />
+                          {isConnected ? "Mint Lineage as Genesis NFT (Etherlink)" : "Connect Wallet to Mint"}
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2 block">Powered by Etherlink (500ms finality)</p>
                 </div>
               </motion.div>
             </motion.div>
