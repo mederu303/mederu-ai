@@ -5,8 +5,15 @@ const getAI = () => {
   // 1. Check localStorage for manually entered key (fallback for external deployments)
   const manualKey = typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY_MANUAL') : null;
   
-  // 2. Check environment variables (standard for local/server-side)
-  const apiKey = manualKey || process.env.API_KEY || process.env.GEMINI_API_KEY || "";
+  // 2. Safely get env var
+  let envKey = "";
+  try {
+    envKey = process.env.GEMINI_API_KEY || "";
+  } catch (e) {
+    // ignore
+  }
+  
+  const apiKey = manualKey || envKey;
   
   if (!apiKey) {
     console.warn("Gemini API Key is empty. Generation will likely fail.");
@@ -82,8 +89,8 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
   
   const prompt = promptResponse.text || "A futuristic AI creating art in a digital void.";
   
-  // 2. Generate Image (Upgraded to nanobanana 2)
-  const imageModel = "gemini-3.1-flash-image-preview";
+  // 2. Generate Image
+  const imageModel = "imagen-3.0-generate-002";
   const imageResponse = await ai.models.generateContent({
     model: imageModel,
     contents: {
@@ -294,8 +301,8 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
 
   const analysis = JSON.parse(analysisResponse.text || "{}");
   
-  // 2. Generate Image (Using nanobanana 2 / gemini-3.1-flash-image-preview)
-  const imageModel = "gemini-3.1-flash-image-preview";
+  // 2. Generate Image
+  const imageModel = "imagen-3.0-generate-002";
   const imageContents: any[] = [];
   
   // CRITICAL: We do NOT pass the original image here to avoid literal reproduction.
