@@ -4,9 +4,10 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, LayoutGrid, Bot, TrendingUp, Eye } from 'lucide-react';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'studio' | 'gallery'>('studio');
   const { isConnected } = useAccount();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -66,39 +67,57 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen">
-      <header className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-            <Sparkles className="w-5 h-5 text-black" />
+    <div className="min-h-screen bg-[#050505] text-zinc-100 font-sans">
+      <nav className="border-b border-white/5 sticky top-0 bg-[#050505]/80 backdrop-blur-xl z-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-emerald-400" />
+              <span className="font-black text-xl tracking-tighter italic text-zinc-100">mederu AI</span>
+            </div>
+            
+            <div className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5">
+              {(['studio', 'gallery'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                    activeTab === tab ? "bg-white text-black" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tighter italic text-zinc-100">mederu AI</h1>
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Autonomous AI Art Genealogy</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <Link href="/lineage" className="text-sm font-bold text-zinc-400 hover:text-emerald-400 transition">
-            View Family Tree
-          </Link>
-          <ConnectButton />
-        </div>
-      </header>
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="text-center mb-16">
-          <h2 className="text-5xl font-black mb-6 tracking-tighter">
-            An Autonomous AI Artist <br />
-            <span className="text-emerald-400 italic font-bold">
-              that interprets its own creations.
-            </span>
-          </h2>
-          <p className="text-zinc-400 text-lg max-w-3xl mx-auto leading-relaxed">
-            Upload an image, or leave it entirely to the AI. <br />
-            The AI generates the artwork, autonomously assigns a title, description, and interpretation, and mints it on Etherlink as a Genesis NFT.<br />
-            Others can later request a "Reinterpretation" to spawn descendants, weaving an on-chain family tree of art.
-          </p>
+          <div className="flex items-center gap-4">
+            <Link href="/lineage" className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-emerald-400 border border-white/10 hover:border-emerald-500/50 transition-all">
+              <LayoutGrid className="w-4 h-4" />
+              Full Lineage
+            </Link>
+            <div className="h-6 w-[1px] bg-white/10 mx-2" />
+            <ConnectButton />
+          </div>
         </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        {activeTab === 'studio' && (
+          <div className="max-w-5xl mx-auto space-y-12 fade-in">
+            <div className="text-center space-y-4 mb-16">
+              <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                <Bot className="w-3 h-3" />
+                Autonomous Active
+              </div>
+              <h2 className="text-4xl font-black tracking-tighter uppercase italic leading-none">
+                 The Alchemist Studio
+              </h2>
+              <p className="text-zinc-500 max-w-md mx-auto leading-relaxed">
+                Upload visual DNA, or leave it entirely to the AI.<br />
+                The AI synthesizes the artwork and mints it on Etherlink.
+              </p>
+            </div>
 
         <div className="bg-white/5 border border-white/5 rounded-3xl p-8 mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -199,7 +218,22 @@ export default function Home() {
             </div>
           )}
         </div>
-      </div>
-    </main>
+        </div>
+        )}
+
+        {activeTab === 'gallery' && (
+          <div className="space-y-12 fade-in">
+             <div className="flex items-center justify-center py-20 text-center space-y-4 flex-col">
+                <LayoutGrid className="w-12 h-12 text-zinc-500 mb-4" />
+                <h3 className="text-2xl font-black text-zinc-400 italic uppercase">Gallery Mode</h3>
+                <p className="text-sm text-zinc-600 uppercase tracking-widest font-bold">Full gallery index coming soon. For now, view the on-chain lineage.</p>
+                <Link href="/lineage" className="mt-4 px-6 py-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-emerald-500/20 transition">
+                  Enter Lineage Canvas
+                </Link>
+             </div>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

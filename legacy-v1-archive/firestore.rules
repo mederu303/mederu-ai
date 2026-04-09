@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidArtwork(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.imageUrl is string && data.imageUrl.size() > 0 &&
+             data.prompt is string && data.prompt.size() > 0 &&
+             data.creatorId is string &&
+             data.createdAt is string;
+    }
+
+    function isValidCuration(data) {
+      return data.source is string &&
+             data.content is string &&
+             data.curatorComment is string &&
+             data.createdAt is string;
+    }
+
+    function isValidUser(data) {
+      return data.displayName is string && data.displayName.size() > 0;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "guruguruhyena@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    match /artworks/{artworkId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy']));
+      allow delete: if isAuthenticated() && (resource.data.creatorId == request.auth.uid || isAdmin());
+    }
+
+    match /curations/{curationId} {
+      allow read: if true;
+      allow create: if isAuthenticated(); // AI curator logic
+      allow update, delete: if isAdmin();
+    }
+
+    match /alchemist_results/{resultId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+  }
+}
