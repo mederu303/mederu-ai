@@ -57,7 +57,7 @@ const compressImage = async (base64Str: string, maxWidth = 512, quality = 0.7): 
 
 export const generateArtwork = async (userId: string, likedStyles: string[] = []): Promise<Partial<Artwork>> => {
   const ai = getAI();
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-2.5-flash";
   
   // Choose a base style from presets
   const style = PRESETS[Math.floor(Math.random() * PRESETS.length)];
@@ -91,36 +91,21 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
   
   // 2. Generate Image
   const imageModel = "imagen-3.0-generate-002";
-  const imageResponse = await ai.models.generateContent({
+  const imageResponse = await ai.models.generateImages({
     model: imageModel,
-    contents: {
-      parts: [
-        { text: prompt }
-      ]
-    },
+    prompt: prompt,
     config: {
-      imageConfig: {
-        aspectRatio: "1:1",
-        imageSize: "1K" // Use 1K but compress later
-      }
+      numberOfImages: 1,
+      aspectRatio: "1:1",
+      outputMimeType: "image/jpeg"
     }
   });
 
-  if (!imageResponse.candidates?.[0]?.content?.parts) {
-    throw new Error("AI failed to generate an image. (No parts in response)");
+  if (!imageResponse.generatedImages?.[0]?.image?.imageBytes) {
+    throw new Error("AI failed to generate an image.");
   }
 
-  let rawImageUrl = "";
-  for (const part of imageResponse.candidates[0].content.parts) {
-    if (part.inlineData) {
-      rawImageUrl = `data:image/png;base64,${part.inlineData.data}`;
-      break;
-    }
-  }
-
-  if (!rawImageUrl) {
-    throw new Error("AI generated a response but image data was missing.");
-  }
+  const rawImageUrl = `data:image/jpeg;base64,${imageResponse.generatedImages[0].image.imageBytes}`;
 
   // Compress to ensure it's under 1MB
   const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
@@ -162,7 +147,7 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
 
 export const curateFeed = async (recentArtworks: Artwork[] = []): Promise<CuratedPost> => {
   const ai = getAI();
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-2.5-flash";
   
   const artworkContext = recentArtworks.length > 0
     ? `Current artworks in our gallery: ${recentArtworks.map(a => `"${a.title}" (${a.style})`).join(", ")}.`
@@ -207,7 +192,7 @@ export const curateFeed = async (recentArtworks: Artwork[] = []): Promise<Curate
 
 export const translateToJapanese = async (text: string): Promise<string> => {
   const ai = getAI();
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-2.5-flash";
   const response = await ai.models.generateContent({
     model,
     contents: `Translate the following art-related text into natural, sophisticated Japanese suitable for a high-end digital art gallery. 
@@ -223,7 +208,7 @@ export const translateToJapanese = async (text: string): Promise<string> => {
 
 export const alchemyInterpret = async (userId: string, url?: string, imageBase64?: string): Promise<any> => {
   const ai = getAI();
-  const model = "gemini-3.1-pro-preview"; 
+  const model = "gemini-2.5-pro"; 
   
   const contents: any[] = [];
   let promptText = "";
@@ -303,43 +288,26 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
   
   // 2. Generate Image
   const imageModel = "imagen-3.0-generate-002";
-  const imageContents: any[] = [];
-  
-  // CRITICAL: We do NOT pass the original image here to avoid literal reproduction.
-  // Instead, we rely on the Pro model's sophisticated "Transmutation" prompt.
-  
-  imageContents.push({ 
-    text: `As an autonomous AI artist, synthesize a new masterpiece inspired by the visual DNA of the source. 
-    Do not reproduce the source literally. Transmute its essence into a new, avant-garde digital artwork.
-    
-    Creative Guidance: ${analysis.prompt}` 
-  });
+  const imagePrompt = `As an autonomous AI artist, synthesize a new masterpiece inspired by the visual DNA of the source. 
+Do not reproduce the source literally. Transmute its essence into a new, avant-garde digital artwork.
 
-  const imageResponse = await ai.models.generateContent({
+Creative Guidance: ${analysis.prompt}`;
+
+  const imageResponse = await ai.models.generateImages({
     model: imageModel,
-    contents: { parts: imageContents },
+    prompt: imagePrompt,
     config: {
-      imageConfig: {
-        aspectRatio: "1:1",
-        imageSize: "1K"
-      },
-      tools: url ? [{ googleSearch: {} }, { urlContext: {} }] : []
+      numberOfImages: 1,
+      aspectRatio: "1:1",
+      outputMimeType: "image/jpeg"
     }
   });
 
-  let rawImageUrl = "";
-  if (imageResponse.candidates?.[0]?.content?.parts) {
-    for (const part of imageResponse.candidates[0].content.parts) {
-      if (part.inlineData) {
-        rawImageUrl = `data:image/png;base64,${part.inlineData.data}`;
-        break;
-      }
-    }
-  }
-
-  if (!rawImageUrl) {
+  if (!imageResponse.generatedImages?.[0]?.image?.imageBytes) {
     throw new Error("AI failed to generate an image from the interpretation.");
   }
+
+  const rawImageUrl = `data:image/jpeg;base64,${imageResponse.generatedImages[0].image.imageBytes}`;
 
   const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
 
