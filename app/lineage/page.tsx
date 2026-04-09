@@ -38,6 +38,8 @@ const CustomNode = ({ data }: any) => {
 
 const nodeTypes = { custom: CustomNode };
 
+import Link from 'next/link';
+
 export default function LineagePage() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -96,6 +98,12 @@ export default function LineagePage() {
 
   return (
     <main className="w-full h-screen bg-black flex text-white relative">
+      <div className="absolute top-6 left-6 z-10">
+        <Link href="/" className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-bold backdrop-blur-md transition shadow-lg flex items-center gap-2">
+          ← Back
+        </Link>
+      </div>
+
       {/* 画面全体をReact Flowキャンバスに */}
       <ReactFlow
         nodes={nodes}
