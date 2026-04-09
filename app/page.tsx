@@ -4,6 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 
 export default function Home() {
   const { isConnected } = useAccount();
@@ -65,15 +66,20 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between bg-black/50 backdrop-blur-md sticky top-0 z-50">
-        <div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">mederu lineage</h1>
-          <p className="text-xs text-white/40 tracking-widest">Autonomous AI Art Genealogy on Etherlink</p>
+    <main className="min-h-screen">
+      <header className="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+            <Sparkles className="w-5 h-5 text-black" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tighter italic text-zinc-100">mederu lineage</h1>
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Autonomous AI Art Genealogy</p>
+          </div>
         </div>
         <div className="flex items-center gap-6">
-          <Link href="/lineage" className="text-sm font-bold text-white/60 hover:text-purple-400 transition">
-            View Family Tree (Lineage)
+          <Link href="/lineage" className="text-sm font-bold text-zinc-400 hover:text-emerald-400 transition">
+            View Family Tree
           </Link>
           <ConnectButton />
         </div>
@@ -81,20 +87,20 @@ export default function Home() {
 
       <div className="max-w-5xl mx-auto px-6 py-16">
         <div className="text-center mb-16">
-          <h2 className="text-5xl font-bold mb-6 tracking-tight">
+          <h2 className="text-5xl font-black mb-6 tracking-tighter">
             An Autonomous AI Artist <br />
-            <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">
+            <span className="text-emerald-400 italic font-bold">
               that interprets its own creations.
             </span>
           </h2>
-          <p className="text-white/60 text-lg max-w-3xl mx-auto leading-relaxed">
+          <p className="text-zinc-400 text-lg max-w-3xl mx-auto leading-relaxed">
             Upload an image, or leave it entirely to the AI. <br />
             The AI generates the artwork, autonomously assigns a title, description, and interpretation, and mints it on Etherlink as a Genesis NFT.<br />
             Others can later request a "Reinterpretation" to spawn descendants, weaving an on-chain family tree of art.
           </p>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 mb-8 shadow-2xl shadow-purple-900/10">
+        <div className="bg-white/5 border border-white/5 rounded-3xl p-8 mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             <div 
               className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center border-dashed cursor-pointer hover:bg-white/10 transition relative overflow-hidden min-h-[160px]"
@@ -107,10 +113,10 @@ export default function Home() {
                      <img src={uploadedImage} className="w-full h-full object-cover opacity-30 blur-sm" />
                   </div>
                   <img src={uploadedImage} className="relative z-10 h-28 object-contain rounded shadow-xl" />
-                  <span className="relative z-10 text-white/80 text-xs mt-2 bg-black/50 px-2 py-1 rounded">Image Uploaded - Click to re-upload</span>
+                  <span className="relative z-10 text-emerald-400 text-xs mt-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-bold">Image Uploaded</span>
                 </>
               ) : (
-                <span className="text-white/50 text-sm">📤 Upload Inspiration Image (Optional)</span>
+                <span className="text-zinc-500 text-sm font-bold uppercase tracking-widest text-[10px]">📤 Drop Image (Optional)</span>
               )}
             </div>
             <div className="flex-1 flex flex-col gap-3 justify-center">
@@ -121,13 +127,13 @@ export default function Home() {
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                   placeholder="Or provide a theme (e.g., 'Cyberpunk forest')"
-                  className="flex-1 bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-purple-500 transition"
+                  className="flex-1 bg-black/50 border border-white/10 rounded-2xl px-4 py-4 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500/50 transition font-medium"
                 />
               </div>
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full py-4 bg-white/10 hover:bg-white/20 disabled:opacity-50 border border-white/20 rounded-xl font-bold transition flex items-center justify-center gap-2"
+                className="w-full py-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-50 rounded-2xl font-bold transition flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
               >
                 {isGenerating ? 'AI is creating...' : '✨ Leave it entirely to AI'}
               </button>
@@ -135,51 +141,51 @@ export default function Home() {
           </div>
 
           {generated && (
-            <div className="flex flex-col md:flex-row gap-8 mt-12 pt-8 border-t border-white/10 animate-fade-in">
+            <div className="flex flex-col md:flex-row gap-8 mt-12 pt-8 border-t border-white/5 animate-fade-in">
               <div className="w-full md:w-1/2">
                 <img
                   src={generated.imageUrl}
                   alt={generated.title}
-                  className="w-full aspect-square rounded-2xl object-cover shadow-2xl shadow-purple-500/20"
+                  className="w-full aspect-square rounded-2xl object-cover shadow-[0_0_40px_rgba(16,185,129,0.15)] border border-white/5"
                 />
               </div>
               <div className="w-full md:w-1/2 flex flex-col justify-center">
                 <div className="mb-6">
-                  <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold mb-3 inline-block">
-                    Autonomous AI Output
+                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-widest rounded-full font-bold mb-4 inline-flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Autonomous Output
                   </span>
-                  <h4 className="text-3xl font-bold mb-3 text-white">{generated.title}</h4>
-                  <div className="bg-black/50 p-5 rounded-xl border border-white/10">
-                    <h5 className="text-xs font-bold text-white/50 mb-2 uppercase tracking-widest">AI Interpretation</h5>
-                    <p className="text-white/80 text-sm leading-relaxed italic">"{generated.interpretation}"</p>
+                  <h4 className="text-4xl font-black mb-4 text-zinc-100 italic tracking-tighter">{generated.title}</h4>
+                  <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                    <h5 className="text-[10px] font-bold text-zinc-500 mb-3 uppercase tracking-[0.2em]">Philosophical Transmutation</h5>
+                    <p className="text-zinc-300 text-sm leading-relaxed italic">{generated.interpretation}</p>
                   </div>
                 </div>
 
                 {mintResult ? (
-                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
-                    <h5 className="text-green-400 font-bold mb-2 flex items-center gap-2">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6">
+                    <h5 className="text-emerald-400 font-bold mb-2 flex items-center gap-2 text-lg">
                        Successfully Minted on Etherlink!
                     </h5>
-                    <p className="text-sm text-green-400/80 mb-3">
+                    <p className="text-sm text-emerald-400/80 mb-4">
                       This creation is now permanently etched on-chain as a Genesis node.
                     </p>
                     <a href={`https://testnet.explorer.etherlink.com/tx/${mintResult.txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg text-sm font-bold transition"
+                      className="inline-block px-5 py-3 bg-white text-black hover:bg-emerald-400 rounded-full text-sm font-bold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                     >
                       View on Explorer ↗
                     </a>
                   </div>
                 ) : (
                   <div className="mt-auto">
-                    <p className="text-xs text-white/40 mb-3">
-                      * Low gas and 500ms finality on Etherlink make continuous reinterpretation possible.
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-3 text-center">
+                      Low gas and 500ms finality on Etherlink
                     </p>
                     <button
                       onClick={handleMint}
                       disabled={isMinting || !isConnected}
-                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 rounded-xl font-bold text-lg shadow-lg shadow-purple-500/20 transition"
+                      className="w-full py-4 border-2 border-transparent bg-white text-black hover:bg-transparent hover:border-emerald-400 hover:text-emerald-400 disabled:opacity-50 rounded-full font-bold text-lg transition-all"
                     >
                       {!isConnected
                         ? 'Connect wallet to Mint'

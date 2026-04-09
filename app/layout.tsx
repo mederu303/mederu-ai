@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "mederu lineage", description: "AI ar
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${interSans.variable} ${robotoMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-black text-white">
+      <body className="min-h-full flex flex-col bg-[#050505] text-zinc-100 font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>
