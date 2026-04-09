@@ -1,29 +1,20 @@
-# Mederu Lineage 🌳
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-**AI art genealogy on Etherlink — where interpretations chain across generations**
+# Run and deploy your AI Studio app
 
-> Submitted to [Tezos EVM AI Hackathon](https://dorahacks.io/hackathon/etherlink-ai/detail) | Deadline: April 9, 2026
+This contains everything you need to run your app locally.
 
-## Concept
+View your app in AI Studio: https://ai.studio/apps/b97b056e-d4f2-4a53-8d90-6bfad3165e7a
 
-Every artwork holds a question: *what does it mean?*
+## Run Locally
 
-**Mederu Lineage** lets an autonomous AI artist answer that question — and then ask it again, and again, across generations.
+**Prerequisites:**  Node.js
 
-1. **Generate** — AI creates an original artwork with its own poetic title and interpretation
-2. **Mint** — The artwork and AI interpretation are locked on Etherlink as an NFT
-3. **Reinterpret** — Anyone can ask the AI to study an existing work and create a derivative, minted as a child NFT linked to its parent on-chain
-4. **Explore** — A visual family tree shows the full genealogy on-chain
 
-## Why Etherlink
-
-- **500ms finality** — Reinterpretation feels instant
-- **Near-zero gas** — Users freely create child NFTs without cost friction
-- **Tezos security** — Smart rollup backed by Tezos L1
-- **EVM compatibility** — Standard ERC-721, accessible to all EVM wallets
-```
-
-## Team
-
-**mederu.art** — Tezos Dapp for art curation
-[mederu.art](https://mederu.art) | [gacha.mederu.art](https://gacha.mederu.art)
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
