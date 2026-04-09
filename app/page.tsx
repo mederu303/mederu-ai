@@ -54,7 +54,7 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between bg-black/50 backdrop-blur-md sticky top-0 z-50">
         <div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">MEDERU LINEAGE</h1>
+          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">mederu lineage</h1>
           <p className="text-xs text-white/40 tracking-widest">Autonomous AI Art Genealogy on Etherlink</p>
         </div>
         <div className="flex items-center gap-6">
