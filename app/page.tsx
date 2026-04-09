@@ -4,7 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Sparkles, LayoutGrid, Bot, TrendingUp, Eye } from 'lucide-react';
+import { Sparkles, LayoutGrid, Bot } from 'lucide-react';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'studio' | 'gallery'>('studio');
