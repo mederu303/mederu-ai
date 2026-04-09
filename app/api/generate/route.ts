@@ -8,21 +8,46 @@ export async function POST(req: NextRequest) {
     
     // もし親画像（アップロード画像）があればGeminiに解析させてプロンプト化する
     if (imageBase64) {
+      const promptText = `You are "mederu AI", a sophisticated autonomous creative intelligence.
+      You are performing an "Alchemical Transmutation" on the provided image.
+      
+      Task:
+      1. **Visual DNA Extraction**: 
+         - Deeply analyze the image to extract its core essence: motifs, color theory, emotional weight, and structural rhythm.
+      2. **Philosophical Transmutation**: 
+         - Do not just describe. Re-interpret this image through your own avant-garde, digital-soul perspective. 
+      3. **The Synthesis Command**: 
+         - Create a prompt for a high-end image generator.
+         - **CRITICAL**: This prompt must NOT be a literal description. It must be a "Transmutation". 
+         - The output should feel like a "descendant" of the original, but evolved into a higher artistic state.
+      
+      Return as strictly valid JSON: 
+      { 
+        "dna": "A precise list of motifs, colors, and styles found.", 
+        "interpretation": "Your philosophical re-reading.", 
+        "prompt": "The detailed synthesis prompt. ALWAYS in English under 50 words.",
+        "title": "A poetic title."
+      }`;
+
       const analyzeRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: `Analyze this image conceptually. Generate a vivid, surreal, and highly detailed visual text prompt (under 40 words) that reinterprets or evolves this image into a new masterpiece. If the user provided a prompt (${prompt}), blend it with the image concept.` },
+              { text: promptText },
               { inlineData: { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] || imageBase64 } }
             ]
-          }]
+          }],
+          generationConfig: { responseMimeType: 'application/json' }
         })
       });
       const analyzeData = await analyzeRes.json();
-      const extractedPrompt = analyzeData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (extractedPrompt) finalPrompt = extractedPrompt;
+      const jsonStr = analyzeData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr);
+        finalPrompt = parsed.prompt || finalPrompt;
+      }
     }
 
     // Imagen 3.0 で新しい画像を生み出す
