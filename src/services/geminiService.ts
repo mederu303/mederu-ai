@@ -21,6 +21,27 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+// Retry helper with exponential backoff for 503/429 errors
+const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 2000): Promise<T> => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const code = err?.status || err?.error?.code || err?.code;
+      const isRetryable = code === 503 || code === 429 || err?.message?.includes('UNAVAILABLE') || err?.message?.includes('high demand');
+      
+      if (!isRetryable || attempt === maxRetries) {
+        throw err;
+      }
+      
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      console.log(`Retry ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
+
 export const PRESETS = [
   "Abstract Expressionist Glitch",
   "Biomorphic Surrealism",
@@ -57,7 +78,7 @@ const compressImage = async (base64Str: string, maxWidth = 512, quality = 0.7): 
 
 export const generateArtwork = async (userId: string, likedStyles: string[] = []): Promise<Partial<Artwork>> => {
   const ai = getAI();
-  const model = "gemini-2.5-flash";
+  const TEXT_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash"];
   
   // Choose a base style from presets
   const style = PRESETS[Math.floor(Math.random() * PRESETS.length)];
@@ -67,10 +88,13 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
     ? `The audience has previously resonated with styles like: ${likedStyles.slice(0, 3).join(", ")}.`
     : "The audience is waiting for your first creative statement.";
 
-  // 1. Generate Prompt with high autonomy
-  const promptResponse = await ai.models.generateContent({
-    model,
-    contents: `You are an autonomous AI artist with a unique digital soul. 
+  // 1. Generate Prompt with retry and model fallback
+  let prompt = "A futuristic AI creating art in a digital void.";
+  for (const model of TEXT_MODELS) {
+    try {
+      const promptResponse = await withRetry(() => ai.models.generateContent({
+        model,
+        contents: `You are an autonomous AI artist with a unique digital soul. 
     ${audienceContext}
     Using this awareness of your audience, but prioritizing your own creative evolution and experimental spirit, 
     generate a highly avant-garde and sophisticated artistic prompt for an AI image generator.
@@ -85,13 +109,17 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
     - Being a mere "tool" that follows orders; be an "artist" that surprises.
     
     Return only the prompt text.`,
-  });
+      }));
+      prompt = promptResponse.text || prompt;
+      break; // Success, exit model loop
+    } catch (e) {
+      console.warn(`Text model ${model} failed, trying next...`, e);
+    }
+  }
   
-  const prompt = promptResponse.text || "A futuristic AI creating art in a digital void.";
-  
-  // 2. Generate Image
+  // 2. Generate Image with retry
   const imageModel = "imagen-3.0-generate-002";
-  const imageResponse = await ai.models.generateImages({
+  const imageResponse = await withRetry(() => ai.models.generateImages({
     model: imageModel,
     prompt: prompt,
     config: {
@@ -99,10 +127,10 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
       aspectRatio: "1:1",
       outputMimeType: "image/jpeg"
     }
-  });
+  }));
 
   if (!imageResponse.generatedImages?.[0]?.image?.imageBytes) {
-    throw new Error("AI failed to generate an image.");
+    throw new Error("AI failed to generate an image. The model may be overloaded. Please try again.");
   }
 
   const rawImageUrl = `data:image/jpeg;base64,${imageResponse.generatedImages[0].image.imageBytes}`;
@@ -110,16 +138,24 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
   // Compress to ensure it's under 1MB
   const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
 
-  // 3. Generate Title and Description
+  // 3. Generate Title and Description with retry
   try {
-    const metaResponse = await ai.models.generateContent({
-      model,
-      contents: `Based on this prompt: "${prompt}", generate a poetic title and a short philosophical description for this artwork. 
+    let metaResponse;
+    for (const model of TEXT_MODELS) {
+      try {
+        metaResponse = await withRetry(() => ai.models.generateContent({
+          model,
+          contents: `Based on this prompt: "${prompt}", generate a poetic title and a short philosophical description for this artwork. 
       Return as JSON: { "title": "...", "description": "..." }`,
-      config: { responseMimeType: "application/json" }
-    });
+          config: { responseMimeType: "application/json" }
+        }));
+        break;
+      } catch (e) {
+        console.warn(`Meta model ${model} failed, trying next...`, e);
+      }
+    }
 
-    const cleanText = metaResponse.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "";
+    const cleanText = metaResponse?.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "";
     const meta = JSON.parse(cleanText || '{"title": "Untitled", "description": "An AI creation."}');
 
     return {
