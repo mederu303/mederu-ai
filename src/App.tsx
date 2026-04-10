@@ -29,7 +29,7 @@ import {
   User 
 } from 'firebase/auth';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { 
   collection, 
   addDoc, 
@@ -164,6 +164,8 @@ function MainApp() {
   const [alchemistViewMode, setAlchemistViewMode] = useState<'large' | 'grid'>('grid');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
+  const [lineageContractAddress, setLineageContractAddress] = useState(localStorage.getItem('ETHERLINK_CONTRACT') || '');
+  const { writeContractAsync } = useWriteContract();
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -625,21 +627,38 @@ function MainApp() {
     }
   };
 
+  const ERC721_ABI = [
+    {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"}],"name":"mintLineage","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"}
+  ];
+
   const handleMintToEtherlink = async (art: Artwork) => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       setError("Please connect your wallet using the button in the top right.");
+      return;
+    }
+    
+    if (!lineageContractAddress) {
+      setError("Please set your Etherlink Contract Address in Settings first.");
+      setIsSettingsOpen(true);
       return;
     }
     
     setIsMinting(true);
     setMintResult(null);
     try {
-      // Simulate on-chain transaction for Hackathon Flow
-      await new Promise(r => setTimeout(r, 2000));
-      setMintResult(`0x${Math.random().toString(16).slice(2, 42)}`);
-      setSuccess(`Successfully minted "${art.title}" on Etherlink Testnet!`);
+      // Execute the actual on-chain transaction against the configured contract
+      const hash = await writeContractAsync({
+        address: lineageContractAddress as `0x${string}`,
+        abi: ERC721_ABI,
+        functionName: 'mintLineage',
+        args: [address, art.imageUrl],
+      });
+      
+      setMintResult(hash);
+      setSuccess(`Successfully initiated minting on Etherlink Testnet!`);
     } catch (err: any) {
-      setError(err.message || "Failed to mint to Etherlink.");
+      console.error("Mint Error:", err);
+      setError(err.message || "Failed to mint. Please check the contract address and try again.");
     } finally {
       setIsMinting(false);
     }
@@ -839,6 +858,32 @@ function MainApp() {
                           </p>
                         </div>
                       )}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Etherlink Settings</h3>
+                  <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-6">
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold">Smart Contract Address</p>
+                      <p className="text-xs text-zinc-500">Provide your Mederu Lineage contract address.</p>
+                      
+                      <div className="relative">
+                        <input 
+                          type="text"
+                          value={lineageContractAddress}
+                          onChange={(e) => {
+                            setLineageContractAddress(e.target.value);
+                            localStorage.setItem('ETHERLINK_CONTRACT', e.target.value);
+                          }}
+                          placeholder="e.g. 0x1234abcd..."
+                          className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500/50 transition-all font-mono"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 leading-relaxed">
+                        Ensure this is a deployed contract on the Etherlink Testnet.
+                      </p>
                     </div>
                   </div>
                 </section>
