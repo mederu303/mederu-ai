@@ -320,42 +320,8 @@ function MainApp() {
 
   useEffect(() => {
     if (IS_DEV) {
-      // Dev mode: use sample artworks
-      setArtworks([
-        {
-          id: 'dev-1',
-          title: 'Ethereal Nebula',
-          description: 'An autonomous creation exploring cosmic color fields and fluid dynamics.',
-          imageUrl: 'https://picsum.photos/seed/mederu1/800/800',
-          prompt: 'Cosmic nebula with vibrant colors, abstract art style',
-          creatorId: 'wallet-user',
-          createdAt: new Date().toISOString(),
-          style: 'Abstract Expressionism',
-          source: 'autonomous' as const,
-        },
-        {
-          id: 'dev-2',
-          title: 'Digital Garden',
-          description: 'A synthwave interpretation of organic growth patterns.',
-          imageUrl: 'https://picsum.photos/seed/mederu2/800/800',
-          prompt: 'Digital garden with neon flowers, synthwave aesthetic',
-          creatorId: 'wallet-user',
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          style: 'Synthwave',
-          source: 'autonomous' as const,
-        },
-        {
-          id: 'dev-3',
-          title: 'Alchemical Synthesis #7',
-          description: 'Visual DNA extracted and reinterpreted through AI alchemy.',
-          imageUrl: 'https://picsum.photos/seed/mederu3/800/800',
-          prompt: 'Abstract alchemy, gold and emerald tones, mystical',
-          creatorId: 'wallet-user',
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-          style: 'Alchemical',
-          source: 'alchemist' as const,
-        },
-      ]);
+      // Dev mode: start with empty gallery, generate via GENERATE button
+      setArtworks([]);
       return;
     }
     // Production: try loading from Firestore (if auth available)
