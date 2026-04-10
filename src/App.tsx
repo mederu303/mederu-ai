@@ -164,7 +164,7 @@ function MainApp() {
   const [alchemistViewMode, setAlchemistViewMode] = useState<'large' | 'grid'>('grid');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
-  const [lineageContractAddress, setLineageContractAddress] = useState(localStorage.getItem('ETHERLINK_CONTRACT') || '');
+  const [lineageContractAddress, setLineageContractAddress] = useState(localStorage.getItem('ETHERLINK_CONTRACT') || '0x77bBD59eBc386828d994Ea9ADE55B78F3342C459');
   const { writeContractAsync } = useWriteContract();
   const [now, setNow] = useState(Date.now());
 
