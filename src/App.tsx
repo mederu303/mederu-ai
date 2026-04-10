@@ -284,36 +284,29 @@ function MainApp() {
   };
 
   useEffect(() => {
-    if (IS_DEV) {
-      // Dev bypass: mock user for localhost
-      setUser({
-        uid: 'dev-local-user',
-        displayName: 'Dev User (Local)',
-        email: 'guruguruhyena@gmail.com',
-        photoURL: '',
-        emailVerified: true,
-      } as unknown as User);
-      return;
-    }
+    // No Google Auth required - use mock user for app access
+    // Wallet connection (MetaMask) is the primary identity for on-chain operations
+    setUser({
+      uid: 'wallet-user',
+      displayName: 'Wallet User',
+      email: 'guruguruhyena@gmail.com',
+      photoURL: '',
+      emailVerified: true,
+    } as unknown as User);
+
+    // Still listen for Google auth if user opts in via settings
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
       if (u) {
-        // Ensure user profile exists
-        const userRef = doc(db, 'users', u.uid);
-        getDoc(userRef).then((snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            if (data.twitterTokens) {
-              setTwitterTokens(data.twitterTokens);
+        setUser(u);
+        try {
+          const userRef = doc(db, 'users', u.uid);
+          getDoc(userRef).then((snap) => {
+            if (snap.exists()) {
+              const data = snap.data();
+              if (data.twitterTokens) setTwitterTokens(data.twitterTokens);
             }
-          } else {
-            setDoc(userRef, {
-              displayName: u.displayName || 'Anonymous',
-              photoURL: u.photoURL || '',
-              bio: 'AI Art Enthusiast'
-            }).catch(e => handleFirestoreError(e, OperationType.WRITE, 'users'));
-          }
-        }).catch(e => handleFirestoreError(e, OperationType.GET, 'users'));
+          }).catch(() => {});
+        } catch {}
       }
     });
     return unsubscribe;
@@ -329,7 +322,7 @@ function MainApp() {
           description: 'An autonomous creation exploring cosmic color fields and fluid dynamics.',
           imageUrl: 'https://picsum.photos/seed/mederu1/800/800',
           prompt: 'Cosmic nebula with vibrant colors, abstract art style',
-          creatorId: 'dev-local-user',
+          creatorId: 'wallet-user',
           createdAt: new Date().toISOString(),
           style: 'Abstract Expressionism',
           source: 'autonomous' as const,
@@ -340,7 +333,7 @@ function MainApp() {
           description: 'A synthwave interpretation of organic growth patterns.',
           imageUrl: 'https://picsum.photos/seed/mederu2/800/800',
           prompt: 'Digital garden with neon flowers, synthwave aesthetic',
-          creatorId: 'dev-local-user',
+          creatorId: 'wallet-user',
           createdAt: new Date(Date.now() - 3600000).toISOString(),
           style: 'Synthwave',
           source: 'autonomous' as const,
@@ -351,7 +344,7 @@ function MainApp() {
           description: 'Visual DNA extracted and reinterpreted through AI alchemy.',
           imageUrl: 'https://picsum.photos/seed/mederu3/800/800',
           prompt: 'Abstract alchemy, gold and emerald tones, mystical',
-          creatorId: 'dev-local-user',
+          creatorId: 'wallet-user',
           createdAt: new Date(Date.now() - 7200000).toISOString(),
           style: 'Alchemical',
           source: 'alchemist' as const,
@@ -359,6 +352,8 @@ function MainApp() {
       ]);
       return;
     }
+    // Production: try loading from Firestore (if auth available)
+    try {
     const q = query(collection(db, 'artworks'), orderBy('createdAt', 'desc'), limit(1000));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => {
@@ -380,26 +375,31 @@ function MainApp() {
       setArtworks(docs);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'artworks'));
     return unsubscribe;
+    } catch { /* Firestore not available */ }
   }, [IS_DEV]);
 
   useEffect(() => {
-    if (IS_DEV) return; // Skip in dev mode
+    if (IS_DEV) return;
+    try {
     const q = query(collection(db, 'curations'), orderBy('createdAt', 'desc'), limit(200));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CuratedPost));
       setCurations(docs);
     });
     return unsubscribe;
+    } catch { /* Firestore not available */ }
   }, []);
 
   useEffect(() => {
-    if (IS_DEV) return; // Skip in dev mode
+    if (IS_DEV) return;
+    try {
     const q = query(collection(db, 'alchemist_results'), orderBy('createdAt', 'desc'), limit(500));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as AlchemistResult));
       setAlchemistResults(docs);
     });
     return unsubscribe;
+    } catch { /* Firestore not available */ }
   }, []);
 
   // Autonomous generation loop simulation
@@ -848,7 +848,7 @@ function MainApp() {
     }
   };
 
-  if (!user) {
+  if (!isConnected) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 font-sans">
         <motion.div 
@@ -861,18 +861,15 @@ function MainApp() {
               <Sparkles className="w-10 h-10 text-black" />
             </div>
             <h1 className="text-5xl font-bold tracking-tighter italic">mederu AI</h1>
-            <p className="text-zinc-400 text-lg">Autonomous Art Studio on Tezos</p>
+            <p className="text-zinc-400 text-lg">Autonomous Art Studio</p>
           </div>
           
-          <button 
-            onClick={handleLogin}
-            className="w-full py-4 bg-white text-black font-bold rounded-full hover:bg-emerald-400 transition-all flex items-center justify-center gap-3 group"
-          >
-            <UserIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            Connect with Google
-          </button>
+          <div className="space-y-4">
+            <ConnectButton />
+            <p className="text-xs text-zinc-600 uppercase tracking-widest">Connect your wallet to begin</p>
+          </div>
           
-          <p className="text-xs text-zinc-600 uppercase tracking-widest">Powered by Gemini 2.5 & Tezos</p>
+          <p className="text-xs text-zinc-600 uppercase tracking-widest">Powered by Gemini &amp; Etherlink</p>
         </motion.div>
       </div>
     );
