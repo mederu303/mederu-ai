@@ -1,12 +1,29 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { TezosToolkit } from '@taquito/taquito';
-import { BeaconWallet } from '@taquito/beacon-wallet';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-// Fallback stub for when BeaconWallet is not yet installed
+// Tezos wallet context - lazy loaded to avoid polyfill issues
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
-const RPC_ENDPOINT = 'https://mainnet.api.tez.ie';
-export const Tezos = new TezosToolkit(RPC_ENDPOINT);
+// Create TezosToolkit lazily only when needed
+let _Tezos: any = null;
+const getTezos = () => {
+  if (!_Tezos) {
+    try {
+      const { TezosToolkit } = require('@taquito/taquito');
+      _Tezos = new TezosToolkit('https://mainnet.api.tez.ie');
+    } catch (e) {
+      console.warn('[Tezos] TezosToolkit not available');
+    }
+  }
+  return _Tezos;
+};
+
+// Export Tezos as a getter for backward compatibility
+export const Tezos = new Proxy({} as any, {
+  get: (_target, prop) => {
+    const tezos = getTezos();
+    return tezos ? tezos[prop] : undefined;
+  }
+});
 
 interface WalletContextType {
   wallet: any | null;
@@ -33,42 +50,26 @@ export const TezosWalletProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    let initWallet: any = null;
-    
-    try {
-      // Dynamic require or standard import assuming packages will be installed
-      initWallet = new BeaconWallet({
-        name: 'mederu AI Studio',
-        preferredNetwork: 'mainnet' as any,
-      });
-      setWallet(initWallet);
-      Tezos.setWalletProvider(initWallet);
-
-      initWallet.client.getActiveAccount().then((activeAccount: any) => {
-        if (activeAccount) {
-          setUserAddress(activeAccount.address);
-          setConnectionStatus('connected');
-        }
-      }).catch(() => {});
-    } catch (e) {
-      console.warn('BeaconWallet init failed. Waiting for dependencies to be installed.');
-    }
-  }, []);
 
   const connectWallet = useCallback(async () => {
-    if (!wallet) return;
     setConnectionStatus('connecting');
     setConnectionError(null);
     try {
-      await wallet.requestPermissions();
-      const activeAccount = await wallet.client.getActiveAccount();
+      const { BeaconWallet } = await import('@taquito/beacon-wallet');
+      const tezos = getTezos();
+      
+      const beaconWallet = new BeaconWallet({
+        name: 'mederu AI Studio',
+        preferredNetwork: 'mainnet' as any,
+      });
+      
+      await beaconWallet.requestPermissions();
+      const activeAccount = await beaconWallet.client.getActiveAccount();
+      
       if (activeAccount) {
+        setWallet(beaconWallet);
         setUserAddress(activeAccount.address);
-        Tezos.setWalletProvider(wallet);
+        if (tezos) tezos.setWalletProvider(beaconWallet);
         setConnectionStatus('connected');
       }
     } catch (error: any) {
@@ -76,7 +77,7 @@ export const TezosWalletProvider: React.FC<{ children: ReactNode }> = ({ childre
       setConnectionStatus('error');
       setConnectionError(error.message);
     }
-  }, [wallet]);
+  }, []);
 
   const disconnectWallet = useCallback(async () => {
     if (!wallet) return;
@@ -84,8 +85,6 @@ export const TezosWalletProvider: React.FC<{ children: ReactNode }> = ({ childre
     setUserAddress(null);
     setConnectionStatus('idle');
   }, [wallet]);
-
-  if (!isMounted) return <>{children}</>;
 
   return (
     <WalletContext.Provider
