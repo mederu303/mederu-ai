@@ -22,10 +22,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut, 
   User 
@@ -413,28 +409,6 @@ function MainApp() {
 
     return () => clearInterval(interval);
   }, [isAutonomous, user]);
-
-  // Handle redirect result on mount
-  useEffect(() => {
-    getRedirectResult(auth).catch((err) => {
-      console.error("Redirect result error:", err);
-    });
-  }, []);
-
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      // Try popup first, fall back to redirect if blocked
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.warn("Popup blocked, falling back to redirect:", error.code);
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/internal-error') {
-        await signInWithRedirect(auth, provider);
-      } else {
-        console.error("Login failed", error);
-      }
-    }
-  };
 
   const handleLogout = () => signOut(auth);
 
