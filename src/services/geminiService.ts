@@ -117,26 +117,38 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
     }
   }
   
-  // 2. Generate Image with retry
-  const imageModel = "imagen-3.0-generate-002";
-  const imageResponse = await withRetry(() => ai.models.generateImages({
-    model: imageModel,
-    prompt: prompt,
-    config: {
-      numberOfImages: 1,
-      aspectRatio: "1:1",
-      outputMimeType: "image/jpeg"
+  // 2. Generate Image using Gemini native image generation (no Imagen access needed)
+  const IMAGE_MODELS = ["gemini-2.0-flash-exp"];
+  let imageUrl = "";
+  
+  for (const imgModel of IMAGE_MODELS) {
+    try {
+      const imageResponse = await withRetry(() => ai.models.generateContent({
+        model: imgModel,
+        contents: `Generate a high-quality, avant-garde digital artwork based on this concept:\n\n${prompt}\n\nCreate a visually stunning, gallery-worthy piece. No text or watermarks.`,
+        config: {
+          responseModalities: ["IMAGE", "TEXT"],
+        }
+      }));
+      
+      // Extract image from response parts
+      const parts = imageResponse.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+      
+      if (imagePart?.inlineData?.data) {
+        const mimeType = imagePart.inlineData.mimeType || 'image/png';
+        const rawImageUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`;
+        imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
+        break; // Success
+      }
+    } catch (e) {
+      console.warn(`Image model ${imgModel} failed:`, e);
     }
-  }));
-
-  if (!imageResponse.generatedImages?.[0]?.image?.imageBytes) {
-    throw new Error("AI failed to generate an image. The model may be overloaded. Please try again.");
   }
-
-  const rawImageUrl = `data:image/jpeg;base64,${imageResponse.generatedImages[0].image.imageBytes}`;
-
-  // Compress to ensure it's under 1MB
-  const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
+  
+  if (!imageUrl) {
+    throw new Error("AI failed to generate an image. Please try again.");
+  }
 
   // 3. Generate Title and Description with retry
   try {
@@ -322,28 +334,29 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
 
   const analysis = JSON.parse(analysisResponse.text || "{}");
   
-  // 2. Generate Image
-  const imageModel = "imagen-3.0-generate-002";
+  // 2. Generate Image using Gemini native image generation
   const imagePrompt = `As an autonomous AI artist, synthesize a new masterpiece inspired by the visual DNA of the source. 
 Do not reproduce the source literally. Transmute its essence into a new, avant-garde digital artwork.
 
 Creative Guidance: ${analysis.prompt}`;
 
-  const imageResponse = await ai.models.generateImages({
-    model: imageModel,
-    prompt: imagePrompt,
+  const imageGenResponse = await withRetry(() => ai.models.generateContent({
+    model: "gemini-2.0-flash-exp",
+    contents: `Generate a high-quality artwork based on this concept:\n\n${imagePrompt}\n\nNo text or watermarks.`,
     config: {
-      numberOfImages: 1,
-      aspectRatio: "1:1",
-      outputMimeType: "image/jpeg"
+      responseModalities: ["IMAGE", "TEXT"],
     }
-  });
-
-  if (!imageResponse.generatedImages?.[0]?.image?.imageBytes) {
+  }));
+  
+  const imgParts = imageGenResponse.candidates?.[0]?.content?.parts || [];
+  const imgPart = imgParts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+  
+  if (!imgPart?.inlineData?.data) {
     throw new Error("AI failed to generate an image from the interpretation.");
   }
 
-  const rawImageUrl = `data:image/jpeg;base64,${imageResponse.generatedImages[0].image.imageBytes}`;
+  const mimeType = imgPart.inlineData.mimeType || 'image/png';
+  const rawImageUrl = `data:${mimeType};base64,${imgPart.inlineData.data}`;
 
   const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
 
