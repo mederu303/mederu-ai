@@ -23,6 +23,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut, 
@@ -134,6 +136,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 function MainApp() {
+  const IS_DEV = window.location.hostname === 'localhost';
   const { isConnected } = useAccount();
   const [user, setUser] = useState<User | null>(null);
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -281,6 +284,17 @@ function MainApp() {
   };
 
   useEffect(() => {
+    if (IS_DEV) {
+      // Dev bypass: mock user for localhost
+      setUser({
+        uid: 'dev-local-user',
+        displayName: 'Dev User (Local)',
+        email: 'guruguruhyena@gmail.com',
+        photoURL: '',
+        emailVerified: true,
+      } as unknown as User);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
@@ -306,6 +320,45 @@ function MainApp() {
   }, []);
 
   useEffect(() => {
+    if (IS_DEV) {
+      // Dev mode: use sample artworks
+      setArtworks([
+        {
+          id: 'dev-1',
+          title: 'Ethereal Nebula',
+          description: 'An autonomous creation exploring cosmic color fields and fluid dynamics.',
+          imageUrl: 'https://picsum.photos/seed/mederu1/800/800',
+          prompt: 'Cosmic nebula with vibrant colors, abstract art style',
+          creatorId: 'dev-local-user',
+          createdAt: new Date().toISOString(),
+          style: 'Abstract Expressionism',
+          source: 'autonomous' as const,
+        },
+        {
+          id: 'dev-2',
+          title: 'Digital Garden',
+          description: 'A synthwave interpretation of organic growth patterns.',
+          imageUrl: 'https://picsum.photos/seed/mederu2/800/800',
+          prompt: 'Digital garden with neon flowers, synthwave aesthetic',
+          creatorId: 'dev-local-user',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          style: 'Synthwave',
+          source: 'autonomous' as const,
+        },
+        {
+          id: 'dev-3',
+          title: 'Alchemical Synthesis #7',
+          description: 'Visual DNA extracted and reinterpreted through AI alchemy.',
+          imageUrl: 'https://picsum.photos/seed/mederu3/800/800',
+          prompt: 'Abstract alchemy, gold and emerald tones, mystical',
+          creatorId: 'dev-local-user',
+          createdAt: new Date(Date.now() - 7200000).toISOString(),
+          style: 'Alchemical',
+          source: 'alchemist' as const,
+        },
+      ]);
+      return;
+    }
     const q = query(collection(db, 'artworks'), orderBy('createdAt', 'desc'), limit(1000));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => {
@@ -327,9 +380,10 @@ function MainApp() {
       setArtworks(docs);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'artworks'));
     return unsubscribe;
-  }, []);
+  }, [IS_DEV]);
 
   useEffect(() => {
+    if (IS_DEV) return; // Skip in dev mode
     const q = query(collection(db, 'curations'), orderBy('createdAt', 'desc'), limit(200));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CuratedPost));
@@ -339,6 +393,7 @@ function MainApp() {
   }, []);
 
   useEffect(() => {
+    if (IS_DEV) return; // Skip in dev mode
     const q = query(collection(db, 'alchemist_results'), orderBy('createdAt', 'desc'), limit(500));
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as AlchemistResult));
@@ -359,12 +414,25 @@ function MainApp() {
     return () => clearInterval(interval);
   }, [isAutonomous, user]);
 
+  // Handle redirect result on mount
+  useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect result error:", err);
+    });
+  }, []);
+
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
+      // Try popup first, fall back to redirect if blocked
       await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed", error);
+    } catch (error: any) {
+      console.warn("Popup blocked, falling back to redirect:", error.code);
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/internal-error') {
+        await signInWithRedirect(auth, provider);
+      } else {
+        console.error("Login failed", error);
+      }
     }
   };
 
@@ -656,6 +724,31 @@ function MainApp() {
       
       setMintResult(hash);
       setSuccess(`Successfully initiated minting on Etherlink Testnet!`);
+      // Post to mederu.art live feed
+      try {
+        const feedApiUrl = window.location.hostname === 'localhost' 
+          ? 'http://localhost:3000/api/mederu-posts' 
+          : 'https://mederu.art/api/mederu-posts';
+
+        await fetch(feedApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            minterAddress: address,
+            opHash: hash,
+            title: `AI Genesis: ${art.title}`,
+            description: `[Autonomously minted via Mederu AI Studio]\n${art.description}`,
+            faContract: lineageContractAddress,
+            tokenId: 1,
+            editions: 1,
+            royalties: 10,
+            ipfsCid: null
+          })
+        });
+      } catch (feedErr) {
+        console.error("Feed integration error:", feedErr);
+      }
+
     } catch (err: any) {
       console.error("Mint Error:", err);
       setError(err.message || "Failed to mint. Please check the contract address and try again.");
@@ -1772,7 +1865,29 @@ function MainApp() {
                       )}
                     </button>
                   )}
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2 block">Powered by Etherlink (500ms finality)</p>
+                  <div className="flex items-center justify-center gap-4 mt-6">
+                    <a 
+                      href={window.location.hostname === 'localhost' ? `http://localhost:3000/materials?importUrl=${encodeURIComponent(selectedArtwork.imageUrl)}` : `https://mederu.art/materials?importUrl=${encodeURIComponent(selectedArtwork.imageUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-6 py-2 bg-white/5 border border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 rounded-full text-xs font-bold uppercase tracking-widest transition-all text-zinc-400 flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Send to Atelier
+                    </a>
+                    <a 
+                      href={window.location.hostname === 'localhost' ? `http://localhost:3001?draftUrl=${encodeURIComponent(selectedArtwork.imageUrl)}` : `https://gacha.mederu.art?draftUrl=${encodeURIComponent(selectedArtwork.imageUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-6 py-2 bg-white/5 border border-white/10 hover:border-violet-500/50 hover:text-violet-400 rounded-full text-xs font-bold uppercase tracking-widest transition-all text-zinc-400 flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Bot className="w-3 h-3" />
+                      Use as Gacha DNA
+                    </a>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-4 block">Powered by Etherlink (500ms finality)</p>
                 </div>
               </motion.div>
             </motion.div>
