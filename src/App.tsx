@@ -205,12 +205,22 @@ function MainApp() {
 
   useEffect(() => {
     const checkKey = async (retries = 15) => {
-      // Check manual key first
+      // Check env var first (set via vite.config.ts from .env.local)
+      try {
+        if (process.env.GEMINI_API_KEY) {
+          console.log("API key found in environment variables");
+          setHasApiKey(true);
+          return;
+        }
+      } catch (e) { /* ignore */ }
+
+      // Check manual key in localStorage
       if (localStorage.getItem('GEMINI_API_KEY_MANUAL')) {
         setHasApiKey(true);
         return;
       }
 
+      // Check AI Studio API (only available when hosted on AI Studio)
       if (window.aistudio?.hasSelectedApiKey) {
         try {
           const has = await window.aistudio.hasSelectedApiKey();
@@ -222,7 +232,7 @@ function MainApp() {
       } else if (retries > 0) {
         setTimeout(() => checkKey(retries - 1), 1000);
       } else {
-        console.warn("window.aistudio not found after 15 seconds. API key selection may be unavailable.");
+        console.warn("No API key found. Please set one in Settings.");
       }
     };
     checkKey();
@@ -371,7 +381,7 @@ function MainApp() {
       setArtworks(docs);
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'artworks'));
     return unsubscribe;
-    } catch { /* Firestore not available */ }
+    } catch (e) { /* Firestore not available */ }
   }, [IS_DEV]);
 
   useEffect(() => {
@@ -383,7 +393,7 @@ function MainApp() {
       setCurations(docs);
     });
     return unsubscribe;
-    } catch { /* Firestore not available */ }
+    } catch (e) { /* Firestore not available */ }
   }, []);
 
   useEffect(() => {
@@ -395,7 +405,7 @@ function MainApp() {
       setAlchemistResults(docs);
     });
     return unsubscribe;
-    } catch { /* Firestore not available */ }
+    } catch (e) { /* Firestore not available */ }
   }, []);
 
   // Autonomous generation loop simulation
@@ -557,13 +567,8 @@ function MainApp() {
       }
     } catch (err: any) {
       console.error("Generation failed", err);
-      // If it's already a JSON string from handleFirestoreError, try to parse it or just show it
-      try {
-        const parsed = JSON.parse(err.message);
-        setError(`Error: ${parsed.error || "Unknown error"}`);
-      } catch {
-        setError(err.message || "Generation failed. Please try again.");
-      }
+      const errMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
+      setError(`Generation failed: ${errMsg}`);
     } finally {
       setIsGenerating(false);
     }
