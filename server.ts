@@ -9,6 +9,8 @@ import fs from "fs";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
+// Load .env.local first (contains API keys), then .env as fallback
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +25,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: "50mb" }));
   app.use(
     session({
       secret: "mederu-ai-secret",

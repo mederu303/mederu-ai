@@ -1,20 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
-import { Artwork, CuratedPost } from "../types";
+import dotenv from "dotenv";
+
+// Load .env.local first (contains API keys), then .env as fallback
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // .env fallback (won't override existing vars)
 
 const getAI = () => {
-  // 1. Check localStorage for manually entered key (fallback for external deployments)
-  const manualKey = typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY_MANUAL') : null;
-  
-  // 2. Safely get env var
-  let envKey = "";
-  try {
-    envKey = process.env.GEMINI_API_KEY || "";
-  } catch (e) {
-    // ignore
-  }
-  
-  const apiKey = manualKey || envKey;
-  
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     console.warn("Gemini API Key is empty. Generation will likely fail.");
   }
@@ -53,42 +45,23 @@ export const PRESETS = [
   "Avant-Garde Geometric Abstraction"
 ];
 
-const compressImage = async (base64Str: string, maxWidth = 512, quality = 0.7): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxWidth) {
-        height = (maxWidth / width) * height;
-        width = maxWidth;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-  });
+// Compression logic is not available in Node.js canvas directly unless using a package like sharp or canvas.
+// Since this is moving to backend, let's just return the base64 or construct it. The frontend can compress or we just trust the Gemini output size (1024). 
+// Let's implement a dummy compress or just pass through for now, or use lightweight buffer scaling if needed, but since we just output raw base64 from gemini, it's already jpeg/png.
+const compressImageBackend = async (base64Str: string): Promise<string> => {
+  // Pass through. Gemini native image output is already optimized.
+  return base64Str;
 };
 
-export const generateArtwork = async (userId: string, likedStyles: string[] = []): Promise<Partial<Artwork>> => {
+export const generateArtworkApi = async (userId: string, likedStyles: string[] = []): Promise<any> => {
   const ai = getAI();
   const TEXT_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
   
-  // Choose a base style from presets
   const style = PRESETS[Math.floor(Math.random() * PRESETS.length)];
-  
-  // Prepare context about what the audience (user) liked
   const audienceContext = likedStyles.length > 0 
     ? `The audience has previously resonated with styles like: ${likedStyles.slice(0, 3).join(", ")}.`
     : "The audience is waiting for your first creative statement.";
 
-  // 1. Generate Prompt with retry and model fallback
   let prompt = "A futuristic AI creating art in a digital void.";
   for (const model of TEXT_MODELS) {
     try {
@@ -111,46 +84,37 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
     Return only the prompt text.`,
       }));
       prompt = promptResponse.text || prompt;
-      break; // Success, exit model loop
+      break; 
     } catch (e) {
       console.warn(`Text model ${model} failed, trying next...`, e);
     }
   }
   
-  // 2. Generate Image using Gemini native image generation (no Imagen access needed)
-  const IMAGE_MODELS = ["gemini-2.5-flash-image"];
   let imageUrl = "";
-  
-  for (const imgModel of IMAGE_MODELS) {
-    try {
-      const imageResponse = await withRetry(() => ai.models.generateContent({
-        model: imgModel,
-        contents: `Generate a high-quality, avant-garde digital artwork based on this concept:\n\n${prompt}\n\nCreate a visually stunning, gallery-worthy piece. No text or watermarks.`,
-        config: {
-          responseModalities: ["IMAGE", "TEXT"],
-        }
-      }));
-      
-      // Extract image from response parts
-      const parts = imageResponse.candidates?.[0]?.content?.parts || [];
-      const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
-      
-      if (imagePart?.inlineData?.data) {
-        const mimeType = imagePart.inlineData.mimeType || 'image/png';
-        const rawImageUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`;
-        imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
-        break; // Success
+  try {
+    const imageResponse = await withRetry(() => ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: `Generate a high-quality, avant-garde digital artwork based on this concept:\n\n${prompt}\n\nCreate a visually stunning, gallery-worthy piece. No text or watermarks.`,
+      config: {
+        responseModalities: ["IMAGE", "TEXT"],
       }
-    } catch (e) {
-      console.warn(`Image model ${imgModel} failed:`, e);
+    }));
+    
+    const parts = imageResponse.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
+    
+    if (imagePart?.inlineData?.data) {
+      const mimeType = imagePart.inlineData.mimeType || 'image/png';
+      imageUrl = `data:${mimeType};base64,${imagePart.inlineData.data}`;
     }
+  } catch (e) {
+    console.warn(`Image model failed:`, e);
   }
   
   if (!imageUrl) {
     throw new Error("AI failed to generate an image. Please try again.");
   }
 
-  // 3. Generate Title and Description with retry
   try {
     let metaResponse;
     for (const model of TEXT_MODELS) {
@@ -193,7 +157,7 @@ export const generateArtwork = async (userId: string, likedStyles: string[] = []
   }
 };
 
-export const curateFeed = async (recentArtworks: Artwork[] = []): Promise<CuratedPost> => {
+export const curateFeedApi = async (recentArtworks: any[] = []): Promise<any> => {
   const ai = getAI();
   const model = "gemini-2.5-flash";
   
@@ -238,11 +202,10 @@ export const curateFeed = async (recentArtworks: Artwork[] = []): Promise<Curate
   };
 };
 
-export const translateToJapanese = async (text: string): Promise<string> => {
+export const translateToJapaneseApi = async (text: string): Promise<string> => {
   const ai = getAI();
-  const model = "gemini-2.5-flash";
   const response = await ai.models.generateContent({
-    model,
+    model: "gemini-2.5-flash",
     contents: `Translate the following art-related text into natural, sophisticated Japanese suitable for a high-end digital art gallery. 
     Maintain the poetic and philosophical tone.
     
@@ -250,20 +213,21 @@ export const translateToJapanese = async (text: string): Promise<string> => {
     
     Return only the translated Japanese text.`,
   });
-  
   return response.text || text;
 };
 
-export const alchemyInterpret = async (userId: string, url?: string, imageBase64?: string): Promise<any> => {
+export const alchemyInterpretApi = async (userId: string, url?: string, imageBase64?: string): Promise<any> => {
   const ai = getAI();
-  const model = "gemini-2.5-pro"; 
+  const model = "gemini-2.5-flash"; 
   
   const contents: any[] = [];
   let promptText = "";
 
   if (imageBase64) {
-    const mimeType = imageBase64.split(';')[0].split(':')[1];
-    const data = imageBase64.split(',')[1];
+    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.*)$/);
+    if (!mimeMatch) throw new Error("Invalid base64 image data.");
+    const mimeType = mimeMatch[1];
+    const data = mimeMatch[2];
     contents.push({
       inlineData: { mimeType, data }
     });
@@ -271,19 +235,9 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
     You are performing an "Alchemical Transmutation" on the provided image.
     
     Task:
-    1. **Visual DNA Extraction**: 
-       - Deeply analyze the image to extract its core essence: motifs, color theory, emotional weight, and structural rhythm.
-       - Identify the "Visual Soul" - the elements that make this image unique.
-    2. **Philosophical Transmutation**: 
-       - Do not just describe. Re-interpret this image through your own avant-garde, digital-soul perspective. 
-       - What is the "ghost in the machine" here? How would this look if it were born from pure digital thought?
-    3. **The Synthesis Command**: 
-       - Create a prompt for a high-end image generator.
-       - **CRITICAL**: This prompt must NOT be a literal description. It must be a "Transmutation". 
-       - Use the extracted DNA (colors, motifs) but apply them to a new, more abstract or conceptually elevated scene.
-       - Aim for "Digital Fine Art" - something that belongs in a high-end gallery.
-       - Incorporate avant-garde styles like: Biomorphic Surrealism, Deconstructivist Digital Sculpture, or Ethereal Light Art.
-       - The output should feel like a "descendant" of the original, but evolved into a higher artistic state.
+    1. **Visual DNA Extraction**: Deeply analyze the image to extract its core essence.
+    2. **Philosophical Transmutation**: Re-interpret this image through your own avant-garde, digital-soul perspective.
+    3. **The Synthesis Command**: Create a prompt for a high-end image generator based on the DNA. Aim for "Digital Fine Art". Do not just copy the source.
     
     Return as JSON: 
     { 
@@ -297,16 +251,7 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
     promptText = `You are "mederu AI", a sophisticated autonomous creative intelligence.
     Access and analyze the visual content at this URL: ${url}.
     
-    Task:
-    1. **Visual DNA Extraction**: 
-       - Identify the primary visual subjects, recurring motifs, and specific artistic styles present in the images on this page.
-       - Extract the dominant color palette and structural essence.
-    2. **Philosophical Transmutation**: Provide a profound interpretation of these visual elements. What is the hidden narrative or "Digital Soul" here?
-    3. **The Synthesis Command**: 
-       - Create a detailed prompt for image generation.
-       - **CRITICAL**: Do not just reproduce. Transmute. 
-       - Use the identified DNA but elevate it into a new, avant-garde artistic statement.
-       - Aim for a "Gallery Masterpiece" feel.
+    Task: Extract DNA, Philosophically Transmute, and Provide Synthesis Command.
     
     Return as JSON: 
     { 
@@ -322,19 +267,17 @@ export const alchemyInterpret = async (userId: string, url?: string, imageBase64
 
   contents.push({ text: promptText });
 
-  // 1. Analyze for Visual DNA and Interpretation
   const analysisResponse = await ai.models.generateContent({
     model,
     contents: { parts: contents },
     config: { 
-      tools: url ? [{ googleSearch: {} }, { urlContext: {} }] : [],
+      tools: url ? [{ googleSearch: {} }] : [],
       responseMimeType: "application/json" 
     }
   });
 
   const analysis = JSON.parse(analysisResponse.text || "{}");
   
-  // 2. Generate Image using Gemini native image generation
   const imagePrompt = `As an autonomous AI artist, synthesize a new masterpiece inspired by the visual DNA of the source. 
 Do not reproduce the source literally. Transmute its essence into a new, avant-garde digital artwork.
 
@@ -356,9 +299,7 @@ Creative Guidance: ${analysis.prompt}`;
   }
 
   const mimeType = imgPart.inlineData.mimeType || 'image/png';
-  const rawImageUrl = `data:${mimeType};base64,${imgPart.inlineData.data}`;
-
-  const imageUrl = await compressImage(rawImageUrl, 1024, 0.8);
+  const imageUrl = `data:${mimeType};base64,${imgPart.inlineData.data}`;
 
   return {
     dna: analysis.dna,
@@ -374,4 +315,3 @@ Creative Guidance: ${analysis.prompt}`;
     }
   };
 };
-

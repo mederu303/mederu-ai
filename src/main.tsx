@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { TezosWalletProvider } from './contexts/WalletContext';
 
 import '@rainbow-me/rainbowkit/styles.css';
 import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
@@ -56,7 +57,9 @@ createRoot(document.getElementById('root')!).render(
           accentColorForeground: 'white',
           borderRadius: 'large',
         })}>
-          <App />
+          <TezosWalletProvider>
+            <App />
+          </TezosWalletProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

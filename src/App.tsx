@@ -28,6 +28,12 @@ import {
 } from 'firebase/auth';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useTezosWallet, Tezos } from './contexts/WalletContext';
+
+const MDRU_CONTRACT = 'KT1MPiGZh9B2XX61UVvY5V3SoSBZprtWZNba';
+const MDRU_BURN_ADDRESS = 'tz1burnburnburnburnburnburnburjAYjjX';
+const MDRU_FEE_GENERATE = 1;
+const MDRU_FEE_ALCHEMY = 2;
 import { 
   collection, 
   addDoc, 
@@ -133,7 +139,10 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 function MainApp() {
   const IS_DEV = window.location.hostname === 'localhost';
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { userAddress: tezosAddress, wallet: tezosWallet, connectWallet: connectTezos } = useTezosWallet();
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [curations, setCurations] = useState<CuratedPost[]>([]);
@@ -481,6 +490,49 @@ function MainApp() {
 
     setIsGenerating(true);
     setError(null);
+    
+    // Process Tezos payment only if manually generated (not autonomous)
+    if (source === 'studio') {
+      if (!tezosAddress || !tezosWallet) {
+        setError("Please connect your Tezos wallet to pay the AI processing fee.");
+        setIsGenerating(false);
+        return;
+      }
+      if (!window.confirm(`AI generation requires an energy burn of ${MDRU_FEE_GENERATE} $MDRU.\\nProceed with payment?`)) {
+        setIsGenerating(false);
+        return;
+      }
+      
+      setIsPaying(true);
+      setSuccess(`Awaiting payment: ${MDRU_FEE_GENERATE} MDRU`);
+      try {
+        const contract = await Tezos.wallet.at(MDRU_CONTRACT);
+        const op = await contract.methods.transfer([
+            {
+                from_: tezosAddress,
+                txs: [
+                    {
+                        to_: MDRU_BURN_ADDRESS,
+                        token_id: 0,
+                        amount: MDRU_FEE_GENERATE * 1_000_000
+                    }
+                ]
+            }
+        ]).send();
+
+        setSuccess(`Confirming burn transaction...`);
+        await op.confirmation();
+        setIsPaying(false);
+        setSuccess(`Payment successful! Commencing synthesis...`);
+      } catch (e: any) {
+        console.error(e);
+        setError(`Payment failed: ${e.message}`);
+        setIsPaying(false);
+        setIsGenerating(false);
+        return; // Halt generation
+      }
+    }
+
     try {
       // Get liked styles for context
       const likedArtworks = artworks.filter(a => a.likedBy?.includes(user.uid));
@@ -555,6 +607,47 @@ function MainApp() {
 
     setIsAlchemizing(true);
     setError(null);
+
+    // Process Tezos payment for Alchemy
+    if (!tezosAddress || !tezosWallet) {
+      setError("Please connect your Tezos wallet to pay the AI Alchemy fee.");
+      setIsAlchemizing(false);
+      return;
+    }
+    if (!window.confirm(`Alchemical synthesis requires an energy burn of ${MDRU_FEE_ALCHEMY} $MDRU.\\nProceed with payment?`)) {
+      setIsAlchemizing(false);
+      return;
+    }
+    
+    setIsPaying(true);
+    setSuccess(`Awaiting payment: ${MDRU_FEE_ALCHEMY} MDRU`);
+    try {
+      const contract = await Tezos.wallet.at(MDRU_CONTRACT);
+      const op = await contract.methods.transfer([
+          {
+              from_: tezosAddress,
+              txs: [
+                  {
+                      to_: MDRU_BURN_ADDRESS,
+                      token_id: 0,
+                      amount: MDRU_FEE_ALCHEMY * 1_000_000
+                  }
+              ]
+          }
+      ]).send();
+
+      setSuccess(`Confirming burn transaction...`);
+      await op.confirmation();
+      setIsPaying(false);
+      setSuccess(`Payment successful! Initiating alchemy...`);
+    } catch (e: any) {
+      console.error(e);
+      setError(`Payment failed: ${e.message}`);
+      setIsPaying(false);
+      setIsAlchemizing(false);
+      return; // Halt generation
+    }
+
     try {
       const result = await alchemyInterpret(user.uid, alchemyUrl || undefined, alchemyImage || undefined);
       
@@ -816,7 +909,7 @@ function MainApp() {
             >
               <div className="flex items-center justify-between mb-12">
                 <div className="flex items-center gap-2">
-                  <Settings className="w-6 h-6 text-emerald-400" />
+                  <Settings className="w-6 h-6 text-emerald-300" />
                   <h2 className="text-2xl font-black tracking-tighter uppercase italic">System Settings</h2>
                 </div>
                 <button 
@@ -840,7 +933,7 @@ function MainApp() {
                           onClick={handleSelectKey}
                           className={cn(
                             "w-full py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-                            hasApiKey ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500 text-black"
+                            hasApiKey ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                           )}
                         >
                           <Key className="w-4 h-4" />
@@ -987,18 +1080,18 @@ function MainApp() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-emerald-400" />
+              <Sparkles className="w-6 h-6 text-emerald-300" />
               <span className="font-black text-xl tracking-tighter italic">mederu AI</span>
             </div>
             
-            <div className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-full">
+            <div className="hidden md:flex items-center gap-1 p-1 rounded-full">
               {(['gallery', 'alchemist', 'curator'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    "px-6 py-2 rounded-full text-sm font-medium transition-all capitalize",
-                    activeTab === tab ? "bg-white text-black" : "text-zinc-400 hover:text-white"
+                    "px-5 py-1.5 rounded-full text-[11px] font-medium transition-all capitalize tracking-wide",
+                    activeTab === tab ? "text-emerald-300 bg-emerald-950/40 border border-emerald-700/50 shadow-[0_0_8px_rgba(16,185,129,0.12)]" : "text-zinc-600 hover:text-zinc-400"
                   )}
                 >
                   {tab}
@@ -1011,14 +1104,15 @@ function MainApp() {
             <button 
               onClick={() => setIsAutonomous(!isAutonomous)}
               className={cn(
-                "hidden sm:flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all",
+                "hidden sm:flex items-center justify-center gap-2 w-52 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all",
                 isAutonomous 
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]" 
-                  : "bg-white/5 text-zinc-500 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400"
+                  ? "bg-black text-emerald-300 border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.2)]" 
+                  : "bg-transparent text-zinc-600 border-white/[0.06] hover:text-zinc-400 hover:border-zinc-600"
               )}
             >
-              <Bot className={cn("w-4 h-4", isAutonomous && "animate-pulse")} />
-              {isAutonomous ? "Autonomous Active" : "Autonomous Off"}
+              <Bot className={cn("w-4 h-4 shrink-0", isAutonomous && "animate-pulse")} />
+              <span>Autonomous</span>
+              <span className="w-12 text-left">{isAutonomous ? "Active" : "Off"}</span>
             </button>
 
             <button 
@@ -1026,8 +1120,8 @@ function MainApp() {
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all",
                 isJapaneseMode 
-                  ? "bg-emerald-500 text-black border-emerald-500" 
-                  : "bg-white/5 text-zinc-500 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400"
+                  ? "bg-white/[0.06] text-zinc-300 border-zinc-700" 
+                  : "bg-transparent text-zinc-600 border-white/[0.06] hover:text-zinc-400 hover:border-zinc-600"
               )}
               title={isJapaneseMode ? "Switch to English" : "Translate to Japanese"}
             >
@@ -1053,7 +1147,7 @@ function MainApp() {
               >
                 <Settings className="w-4 h-4 text-zinc-400 group-hover:text-white transition-colors" />
                 {(!hasApiKey || !twitterTokens) && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-amber-500 border border-[#050505] rounded-full" />
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-emerald-500 border border-[#050505] rounded-full" />
                 )}
               </button>
 
@@ -1064,7 +1158,21 @@ function MainApp() {
               )}
             </div>
             
-            <ConnectButton />
+            <div className="flex items-center gap-2">
+              <ConnectButton />
+              {!tezosAddress ? (
+                <button 
+                  onClick={connectTezos}
+                  className="px-4 py-2 bg-emerald-500 text-black text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all font-mono"
+                >
+                  Connect Tezos
+                </button>
+              ) : (
+                <div className="px-4 py-2 bg-white/5 border border-white/10 text-emerald-300 text-xs font-bold rounded-xl font-mono">
+                  {tezosAddress.slice(0, 5)}...{tezosAddress.slice(-4)}
+                </div>
+              )}
+            </div>
 
             <button onClick={handleLogout} className="p-2 text-zinc-500 hover:text-white transition-colors">
               <LogOut className="w-5 h-5" />
@@ -1106,16 +1214,16 @@ function MainApp() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 bg-white/5 p-1 rounded-full border border-white/5">
+                  <div className="flex items-center gap-1 p-1 rounded-full">
                     {(['all', 'alchemist', 'autonomous'] as const).map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setGalleryFilter(filter)}
                         className={cn(
-                          "px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all",
+                          "px-5 py-1.5 rounded-full text-[10px] font-medium uppercase tracking-widest transition-all",
                           galleryFilter === filter 
-                            ? "bg-white text-black" 
-                            : "text-zinc-500 hover:text-white"
+                            ? "text-emerald-300 bg-emerald-950/40 border border-emerald-700/50 shadow-[0_0_8px_rgba(16,185,129,0.12)]" 
+                            : "text-zinc-600 hover:text-zinc-400"
                         )}
                       >
                         {filter === 'all' ? 'Everything' : filter === 'alchemist' ? 'Alchemist' : 'Autonomous'}
@@ -1128,8 +1236,8 @@ function MainApp() {
                     className={cn(
                       "p-2 rounded-full border transition-all",
                       hideGalleryText 
-                        ? "bg-emerald-500 text-black border-emerald-500" 
-                        : "bg-white/5 text-zinc-500 border-white/10 hover:border-emerald-500/50 hover:text-emerald-400"
+                        ? "bg-white/[0.07] text-zinc-300 border-zinc-700" 
+                        : "bg-transparent text-zinc-600 border-white/[0.06] hover:text-zinc-400 hover:border-zinc-600"
                     )}
                     title={hideGalleryText ? "Show Text" : "Hide Text"}
                   >
@@ -1142,33 +1250,33 @@ function MainApp() {
                   disabled={isGenerating}
                   className={cn(
                     "group relative h-12 px-6 rounded-full flex items-center justify-center gap-2 transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 font-bold uppercase tracking-widest text-xs",
-                    !hasApiKey ? "bg-amber-500 text-black" : "bg-emerald-500 text-black"
+                    !hasApiKey ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 hover:text-white"
                   )}
                 >
                   <div className="absolute inset-0 rounded-full border-2 border-white/20 group-hover:scale-110 group-hover:opacity-0 transition-all duration-500" />
                   
-                  {isGenerating ? (
+                  {isGenerating || isPaying ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : !hasApiKey ? (
                     <Key className="w-4 h-4" />
                   ) : (
                     <Bot className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   )}
-                  <span>{isGenerating ? "Generating" : "generate"}</span>
+                  <span>{isGenerating || isPaying ? "Processing" : "generate"}</span>
                 </button>
               </div>
 
               {!hasApiKey && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="space-y-1">
-                    <p className="text-amber-400 font-bold uppercase tracking-widest text-xs">Action Required</p>
+                    <p className="text-emerald-300 font-bold uppercase tracking-widest text-xs">Action Required</p>
                     <h3 className="text-xl font-bold">Connect your Google Cloud Billing</h3>
                     <p className="text-zinc-400 text-sm max-w-md">To use high-quality nanobanana 2 models, you need to provide your own API key. Costs will be billed directly to your account.</p>
-                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-xs text-amber-400 underline mt-2 inline-block">Learn about Gemini API Billing</a>
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-300/70 underline mt-2 inline-block">Learn about Gemini API Billing</a>
                   </div>
                   <button 
                     onClick={handleSelectKey}
-                    className="px-8 py-4 bg-amber-500 text-black font-bold rounded-full hover:bg-amber-400 transition-all whitespace-nowrap"
+                    className="px-8 py-4 bg-emerald-500/20 text-emerald-300 font-bold rounded-full hover:bg-emerald-500/30 transition-all whitespace-nowrap border border-emerald-500/20"
                   >
                     Select API Key
                   </button>
@@ -1180,15 +1288,15 @@ function MainApp() {
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="relative bg-white/5 rounded-3xl overflow-hidden border border-emerald-500/30 aspect-square flex flex-col items-center justify-center p-12 text-center space-y-4 shadow-[0_0_40px_rgba(16,185,129,0.1)]"
+                    className="relative bg-black rounded-3xl overflow-hidden border border-emerald-800/40 aspect-square flex flex-col items-center justify-center p-12 text-center space-y-4 shadow-[0_0_30px_rgba(16,185,129,0.06)]"
                   >
-                    <div className="absolute inset-0 border border-white/10 rounded-3xl pointer-events-none" />
-                    <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center relative z-10">
-                      <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+                    <div className="absolute inset-0 border border-white/[0.03] rounded-3xl pointer-events-none" />
+                    <div className="w-16 h-16 bg-emerald-950/60 rounded-full flex items-center justify-center relative z-10 border border-emerald-800/30">
+                      <RefreshCw className="w-8 h-8 text-emerald-500/60 animate-spin" />
                     </div>
                     <div className="space-y-2 relative z-10">
-                      <p className="text-emerald-400 font-black uppercase italic tracking-tighter text-xl">Generating...</p>
-                      <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold">AI is crafting a masterpiece</p>
+                      <p className="text-emerald-500/50 font-black uppercase italic tracking-tighter text-xl">Generating...</p>
+                      <p className="text-zinc-700 text-xs uppercase tracking-widest font-bold">AI is crafting a masterpiece</p>
                     </div>
                   </motion.div>
                 )}
@@ -1249,7 +1357,7 @@ function MainApp() {
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="text-xl font-bold tracking-tight">{art.title}</h3>
-                            <p className="text-xs text-emerald-400 font-mono uppercase tracking-widest">{art.style}</p>
+                            <p className="text-xs text-emerald-300 font-mono uppercase tracking-widest">{art.style}</p>
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -1262,7 +1370,7 @@ function MainApp() {
                                 e.stopPropagation();
                                 copyToClipboard(art.prompt);
                               }}
-                              className="text-[8px] text-zinc-600 uppercase font-bold tracking-widest hover:text-emerald-400 transition-colors flex items-center gap-1"
+                              className="text-[8px] text-zinc-600 uppercase font-bold tracking-widest hover:text-emerald-300 transition-colors flex items-center gap-1"
                             >
                               <Sparkles className="w-2 h-2" />
                               Click to copy prompt
@@ -1275,7 +1383,7 @@ function MainApp() {
                               {art.source === 'alchemist' ? (
                                 <TrendingUp className="w-3 h-3 text-violet-400" />
                               ) : art.source === 'autonomous' ? (
-                                <Sparkles className="w-3 h-3 text-emerald-400" />
+                                <Sparkles className="w-3 h-3 text-emerald-300" />
                               ) : (
                                 <Bot className="w-3 h-3 text-zinc-400" />
                               )}
@@ -1338,8 +1446,8 @@ function MainApp() {
                               className={cn(
                                 "p-2 rounded-full transition-all",
                                 isSharing === art.id 
-                                  ? "bg-emerald-500/20 text-emerald-400 animate-pulse" 
-                                  : "bg-white/5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                  ? "bg-emerald-500/20 text-emerald-300 animate-pulse" 
+                                  : "bg-white/5 text-zinc-500 hover:text-emerald-300 hover:bg-emerald-500/10"
                               )}
                               title="Share via Alternative API"
                             >
@@ -1402,7 +1510,7 @@ function MainApp() {
               className="max-w-3xl mx-auto space-y-12"
             >
               <div className="text-center space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
                   <Eye className="w-3 h-3" />
                   AI Curator Active
                 </div>
@@ -1412,7 +1520,7 @@ function MainApp() {
                   <button 
                     onClick={refreshCurator}
                     disabled={isGenerating}
-                    className="px-6 py-2 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-bold uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-all disabled:opacity-50"
+                    className="px-6 py-2 bg-emerald-500/10 text-emerald-300 rounded-full text-xs font-bold uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-all disabled:opacity-50"
                   >
                     {isGenerating ? "Analyzing..." : "Refresh Feed"}
                   </button>
@@ -1489,7 +1597,7 @@ function MainApp() {
                       </p>
                       <div className="p-6 bg-black/40 rounded-3xl border border-white/5">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs text-emerald-400 uppercase font-bold tracking-widest">Curator's Note</p>
+                          <p className="text-xs text-emerald-300 uppercase font-bold tracking-widest">Curator's Note</p>
                         </div>
                         <p className="text-zinc-400 text-sm leading-relaxed">
                           {isJapaneseMode && translations[`${curation.id}_note`] 
@@ -1758,10 +1866,10 @@ function MainApp() {
                 />
                 <div className="mt-8 text-center space-y-2">
                   <h3 className="text-2xl font-black tracking-tighter uppercase italic">{selectedArtwork.title}</h3>
-                  <p className="text-emerald-400 text-xs font-mono uppercase tracking-widest mb-4">{selectedArtwork.style}</p>
+                  <p className="text-emerald-300 text-xs font-mono uppercase tracking-widest mb-4">{selectedArtwork.style}</p>
                   
                   {mintResult ? (
-                    <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                    <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)]">
                       <Sparkles className="w-4 h-4" />
                       Minted on Etherlink (Tx: {mintResult.slice(0,6)}...{mintResult.slice(-4)})
                     </div>
@@ -1789,7 +1897,7 @@ function MainApp() {
                       href={window.location.hostname === 'localhost' ? `http://localhost:3000/materials?importUrl=${encodeURIComponent(selectedArtwork.imageUrl)}` : `https://mederu.art/materials?importUrl=${encodeURIComponent(selectedArtwork.imageUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-6 py-2 bg-white/5 border border-white/10 hover:border-emerald-500/50 hover:text-emerald-400 rounded-full text-xs font-bold uppercase tracking-widest transition-all text-zinc-400 flex items-center gap-2"
+                      className="px-6 py-2 bg-white/5 border border-white/10 hover:border-emerald-500/50 hover:text-emerald-300 rounded-full text-xs font-bold uppercase tracking-widest transition-all text-zinc-400 flex items-center gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Sparkles className="w-3 h-3" />
@@ -1819,7 +1927,7 @@ function MainApp() {
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
+              <Sparkles className="w-5 h-5 text-emerald-300" />
               <span className="font-black text-lg tracking-tighter italic">mederu AI</span>
             </div>
             <p className="text-[10px] text-zinc-600 uppercase tracking-widest">© 2026 AUTONOMOUS ART LAB</p>
