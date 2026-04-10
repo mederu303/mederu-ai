@@ -974,10 +974,10 @@ function MainApp() {
                 {user && (
                   <section className="pt-10 border-t border-white/5">
                     <div className="flex items-center gap-4">
-                      <img src={user.photoURL || ''} className="w-12 h-12 rounded-full border border-white/10" alt="" />
+                      {user?.photoURL && <img src={user.photoURL} className="w-12 h-12 rounded-full border border-white/10" alt="" />}
                       <div>
-                        <p className="text-sm font-bold">{user.displayName}</p>
-                        <p className="text-xs text-zinc-500">{user.email}</p>
+                        <p className="text-sm font-bold">{user?.displayName || 'Wallet User'}</p>
+                        <p className="text-xs text-zinc-500">{user?.email || 'Connected via wallet'}</p>
                       </div>
                     </div>
                   </section>
@@ -1088,7 +1088,9 @@ function MainApp() {
 
               <div className="w-[1px] h-4 bg-white/10 mx-1" />
 
-              <img src={user.photoURL || ''} className="w-7 h-7 rounded-full border border-white/10" alt="" />
+              {user?.photoURL && (
+                <img src={user.photoURL} className="w-7 h-7 rounded-full border border-white/10" alt="" />
+              )}
             </div>
             
             <ConnectButton />
