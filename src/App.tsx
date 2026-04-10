@@ -822,32 +822,7 @@ function MainApp() {
     }
   };
 
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 font-sans">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full text-center space-y-8"
-        >
-          <div className="space-y-4">
-            <div className="w-20 h-20 bg-emerald-500 rounded-full mx-auto flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)]">
-              <Sparkles className="w-10 h-10 text-black" />
-            </div>
-            <h1 className="text-5xl font-bold tracking-tighter italic">mederu AI</h1>
-            <p className="text-zinc-400 text-lg">Autonomous Art Studio</p>
-          </div>
-          
-          <div className="space-y-4">
-            <ConnectButton />
-            <p className="text-xs text-zinc-600 uppercase tracking-widest">Connect your wallet to begin</p>
-          </div>
-          
-          <p className="text-xs text-zinc-600 uppercase tracking-widest">Powered by Gemini &amp; Etherlink</p>
-        </motion.div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100 font-sans">
