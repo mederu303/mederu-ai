@@ -8,7 +8,9 @@ import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rai
 import { WagmiProvider, http } from 'wagmi';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
-const etherlinkTestnet = {
+import { defineChain } from 'viem';
+
+const etherlinkTestnet = defineChain({
   id: 128123,
   name: 'Etherlink Testnet',
   nativeCurrency: { name: 'XTZ', symbol: 'XTZ', decimals: 18 },
@@ -19,14 +21,27 @@ const etherlinkTestnet = {
     default: { name: 'Etherlink Explorer', url: 'https://testnet.explorer.etherlink.com' },
   },
   testnet: true,
-};
+});
+
+const etherlinkMainnet = defineChain({
+  id: 42793,
+  name: 'Etherlink',
+  nativeCurrency: { name: 'XTZ', symbol: 'XTZ', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://node.mainnet.etherlink.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'Etherlink Explorer', url: 'https://explorer.etherlink.com' },
+  },
+});
 
 const config = getDefaultConfig({
-  appName: 'mederu AI Lineage',
+  appName: 'mederu AI',
   projectId: 'ec3b1d1f73b06deadd856ba63d08ddbe',
-  chains: [etherlinkTestnet],
+  chains: [etherlinkMainnet, etherlinkTestnet],
   transports: {
-    [etherlinkTestnet.id]: http(),
+    [etherlinkMainnet.id]: http('https://node.mainnet.etherlink.com'),
+    [etherlinkTestnet.id]: http('https://node.ghostnet.etherlink.com'),
   },
 });
 
